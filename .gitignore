@@ -1,0 +1,22 @@
+# MPLAB X IDE user-specific and generated files
+**/nbproject/private/
+**/nbproject/Makefile-local-*.mk
+**/nbproject/Makefile-genesis.properties
+
+# Build output directories
+build/
+dist/
+
+# Debug, disassembly, and other generated output
+debug/
+disassembly/
+
+# Backup and temporary files
+*~
+*.bak
+*.swp
+
+# Compiled output and map files
+*.elf
+*.hex
+*.map
