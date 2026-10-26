@@ -60,7 +60,11 @@ Setup:
 
     ; Set up MSSP for I2C Master Mode
     BANKSEL SSPCON
-    MOVLW 0x28         ; SSPEN = 1, Master Mode = 1000
+    CLRF SSPCON
+    BANKSEL SSPCON2
+    CLRF SSPCON2
+    BANKSEL SSPCON
+    MOVLW 0x28         ; Enable MSSP, I2C Master Mode
     MOVWF SSPCON
 
     BANKSEL SSPSTAT
@@ -84,7 +88,7 @@ Setup:
 GOTO Main
 
 Main:
-; Start a new timer interval
+    ; Start a new timer interval
     BANKSEL TMR0
     CLRF TMR0
     CLRF TimerCount
