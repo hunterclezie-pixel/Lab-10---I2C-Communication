@@ -1,6 +1,6 @@
 // Hunter Clezie
 // RCET3375
-// Lab10I2CPt1
+// Lab10I2CPt2
 // https://github.com/hunterclezie-pixel/Lab-10---I2C-Communication.git
 
 ; PIC16F883 Configuration Bit Settings
@@ -26,7 +26,6 @@
 ; config statements should precede project file includes.
 #include <xc.inc>  
     ; General Purpose Registers
-    TimerCount EQU 0x20   ; Counts Timer0 overflows
  
 ; Reset Vector at 0000h. Execution starts here after reset.
 PSECT resetVect,class=CODE,delta=2
@@ -74,48 +73,21 @@ Setup:
     BANKSEL SSPADD
     MOVLW 0x09         ; 4 MHz / (4 x (9 + 1))
     MOVWF SSPADD
-
-    ; Set up Timer0
-    BANKSEL OPTION_REG
-    MOVLW 0x07         ; Internal clock, 1:256 prescaler
-    MOVWF OPTION_REG
-
-    BANKSEL TMR0
-    CLRF TMR0
-    CLRF TimerCount
-    BCF INTCON,2       ; Clear TMR0 overflow flag
     
 GOTO Main
 
 Main:
-    ; Start a new timer interval
-    BANKSEL TMR0
-    CLRF TMR0
-    CLRF TimerCount
-    BCF INTCON,2
-
-TimerWait:
-    ; Wait for a Timer0 overflow
-    BTFSS INTCON,2
-    GOTO TimerWait
-    BCF INTCON,2       ; Clear overflow flag
-    INCF TimerCount,F
-
-    ; Wait for 15 overflows
-    MOVLW 0x0F
-    XORWF TimerCount,W
-    BTFSS STATUS,2
-    GOTO TimerWait
-
-    ; Timer event starts new I2C transaction
+    ; Start one address test
     BANKSEL PORTA
     BSF PORTA,1        ; RA1 HIGH
     CALL AddressProbe
     BANKSEL PORTA
-    BCF PORTA,1        ; RA1 LOW after STOP
-    GOTO Main
-
-
+    BCF PORTA,1        ; RA1 LOW
+    GOTO Halt
+    
+Halt:
+    GOTO Halt          ; Wait until MCLR reset
+    
 AddressProbe:
     ; Clear NACK indicator before each probe
     BANKSEL PORTA
@@ -131,10 +103,14 @@ WaitStart:
     BTFSC SSPCON2,0    ; Wait until START finishes
     GOTO WaitStart
 
-    ; Send 7-bit address 0x20 with R/W = 0
+    ; Send 7-bit ADS1115 addresses with R/W = 0
     BANKSEL PIR1
     BCF PIR1,3         ; Clear SSPIF
-    MOVLW 0x40         ; Address = 0x20, Write = 0
+    ; Commented out until needed for testing
+    MOVLW 0x90         ; Address 0x48, Write = 0
+    ; MOVLW 0x92       ; Address 0x49, Write = 0
+    ; MOVLW 0x94       ; Address 0x4A, Write = 0
+    ; MOVLW 0x96       ; Address 0x4B, Write = 0
     BANKSEL SSPBUF
     MOVWF SSPBUF       ; Send address byte
 
