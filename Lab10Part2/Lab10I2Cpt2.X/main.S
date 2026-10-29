@@ -26,6 +26,22 @@
 ; config statements should precede project file includes.
 #include <xc.inc>  
     ; General Purpose Registers
+    ErrorFlag   EQU 0x70    ; Bit 0 = NACK, Bit 1 = Timeout
+    WaitCount   EQU 0x71    ; I2C timeout counter
+    PointerByte EQU 0x72    ; ADS1115 register pointer
+    DataHigh    EQU 0x73    ; Upper data byte
+    DataLow     EQU 0x74    ; Lower data byte
+    RxByte      EQU 0x75    ; Received I2C byte
+    TimerCount  EQU 0x76    ; Counts Timer0 overflows
+    WaitOuter   EQU 0x77    ; Second timeout counter
+   
+    ; ADS1115 Address
+    ADSWrite	EQU 0x90      ; ADDR = GND, Write
+    ADSRead	EQU 0x91      ; ADDR = GND, Read
+
+    ; Timer0 Settings
+    TimerOption EQU 0x07   ; 1:256  prescaler
+    TimerOverflows EQU 15  ; 15 overflows
  
 ; Reset Vector at 0000h. Execution starts here after reset.
 PSECT resetVect,class=CODE,delta=2
@@ -74,19 +90,202 @@ Setup:
     MOVLW 0x09         ; 4 MHz / (4 x (9 + 1))
     MOVWF SSPADD
     
+    ; Set up Timer0
+    BANKSEL OPTION_REG
+    MOVLW TimerOption
+    MOVWF OPTION_REG
+    BANKSEL TMR0
+    CLRF TMR0
+    BCF INTCON,2       ; Clear Timer0 overflow flag
+
+    ; Clear variables
+    CLRF ErrorFlag
+    CLRF TimerCount
+    CLRF PointerByte
+    CLRF DataHigh
+    CLRF DataLow
+    CLRF RxByte
+    
 GOTO Main
 
 Main:
+    GOTO AddressTest
+    ; GOTO ReadConfigTest
+    ; GOTO WriteConfigTest
+    ; GOTO VerifyConfigTest
+    ; GOTO ContinuousTest
+    ; GOTO ReadyTest
+    ; Start one address test
+
+AddressTest:
     ; Start one address test
     BANKSEL PORTA
+    BCF PORTA,0        ; Clear NACK indicator
+    BCF PORTA,1        ; Clear timer diagnostic
     BSF PORTA,1        ; RA1 HIGH
     CALL AddressProbe
     BANKSEL PORTA
     BCF PORTA,1        ; RA1 LOW
     GOTO Halt
-    
+
+ReadConfigTest:
+    ; Read Config Register
+    BANKSEL PORTA
+    BCF PORTA,0
+    BSF PORTA,1        ; RA1 HIGH
+
+    ; Select Config register
+    MOVLW 0x01
+    MOVWF PointerByte
+    CALL SelectRegister
+    MOVF ErrorFlag,F
+    BTFSS STATUS,2
+    GOTO Halt
+
+    ; Read Config MSB and LSB
+    CALL ReadRegister
+    MOVF ErrorFlag,F
+    BTFSS STATUS,2
+    GOTO Halt
+    BANKSEL PORTA
+    BCF PORTA,1        ; RA1 LOW
+    GOTO Halt
+
+WriteConfigTest:
+    ; Write Config Register
+    BANKSEL PORTA
+    BCF PORTA,0
+    BSF PORTA,1        ; RA1 HIGH
+
+    ; Select Config register
+    MOVLW 0x01
+    MOVWF PointerByte
+
+    ; Config = 0x4083
+    MOVLW 0x40
+    MOVWF DataHigh
+    MOVLW 0x83
+    MOVWF DataLow
+    CALL WriteRegister
+    MOVF ErrorFlag,F
+    BTFSS STATUS,2
+    GOTO Halt
+    BANKSEL PORTA
+    BCF PORTA,1        ; RA1 LOW
+    GOTO Halt
+
+VerifyConfigTest:
+    ; Verify Config Register
+    BANKSEL PORTA
+    BCF PORTA,0
+    BSF PORTA,1        ; RA1 HIGH
+
+    ; Select Config register
+    MOVLW 0x01
+    MOVWF PointerByte
+    CALL SelectRegister
+    MOVF ErrorFlag,F
+    BTFSS STATUS,2
+    GOTO Halt
+
+    ; Read Config register
+    CALL ReadRegister
+    MOVF ErrorFlag,F
+    BTFSS STATUS,2
+    GOTO Halt
+    BANKSEL PORTA
+    BCF PORTA,1
+    GOTO Halt
+ 
+ContinuousTest:
+    ; Configure ADC once at startup
+    MOVLW 0x01
+    MOVWF PointerByte
+    MOVLW 0x40
+    MOVWF DataHigh
+    MOVLW 0x83
+    MOVWF DataLow
+    CALL WriteRegister
+    MOVF ErrorFlag,F
+    BTFSS STATUS,2
+    GOTO Halt
+
+ADCMain:
+    ; Wait for Timer0 interval
+    CALL WaitTimer
+
+    ; Start ADC transaction
+    BANKSEL PORTA
+    BCF PORTA,0
+    BSF PORTA,1        ; RA1 HIGH
+
+    ; Select Conversion register
+    MOVLW 0x00
+    MOVWF PointerByte
+    CALL SelectRegister
+    MOVF ErrorFlag,F
+    BTFSS STATUS,2
+    GOTO Halt
+
+    ; Read two ADC bytes
+    CALL ReadRegister
+    MOVF ErrorFlag,F
+    BTFSS STATUS,2
+    GOTO Halt
+    BANKSEL PORTA
+    BCF PORTA,1        ; RA1 LOW
+    GOTO ADCMain
+
+ReadyTest:
+    ; Enable Conversion Ready
+    BANKSEL PORTA
+    BCF PORTA,0
+    BSF PORTA,1        ; RA1 HIGH
+
+    ; Set Lo_thresh = 0x0000
+    MOVLW 0x02
+    MOVWF PointerByte
+    CLRF DataHigh
+    CLRF DataLow
+    CALL WriteRegister
+    MOVF ErrorFlag,F
+    BTFSS STATUS,2
+    GOTO Halt
+
+    ; Set Hi_thresh = 0x8000
+    MOVLW 0x03
+    MOVWF PointerByte
+    MOVLW 0x80
+    MOVWF DataHigh
+    CLRF DataLow
+    CALL WriteRegister
+    MOVF ErrorFlag,F
+    BTFSS STATUS,2
+    GOTO Halt
+
+    ; Enable ALERT/RDY
+    ; Config = 0x4080
+    MOVLW 0x01
+    MOVWF PointerByte
+    MOVLW 0x40
+    MOVWF DataHigh
+    MOVLW 0x80
+    MOVWF DataLow
+    CALL WriteRegister
+    MOVF ErrorFlag,F
+    BTFSS STATUS,2
+    GOTO Halt
+    BANKSEL PORTA
+    BCF PORTA,1        ; RA1 LOW
+
+    ; ADS1115 continues converting
+    GOTO Halt
+
 Halt:
-    GOTO Halt          ; Wait until MCLR reset
+    ; Do-Nothing Loop
+    BANKSEL PORTA
+    BCF PORTA,1        ; RA1 LOW
+    GOTO Halt
     
 AddressProbe:
     ; Clear NACK indicator before each probe
@@ -106,6 +305,7 @@ WaitStart:
     ; Send 7-bit ADS1115 addresses with R/W = 0
     BANKSEL PIR1
     BCF PIR1,3         ; Clear SSPIF
+    
     ; Commented out until needed for testing
     MOVLW 0x90         ; Address 0x48, Write = 0
     ; MOVLW 0x92       ; Address 0x49, Write = 0
@@ -136,6 +336,271 @@ SendStop:
 WaitStop:
     BTFSC SSPCON2,2    ; Wait until STOP finishes
     GOTO WaitStop
+    RETURN
+    
+SelectRegister:
+    ; Generate START
+    CALL I2CStart
+    MOVF ErrorFlag,F
+    BTFSS STATUS,2
+    RETURN
+
+    ; Send address + Write
+    MOVLW ADSWrite
+    CALL I2CSend
+    MOVF ErrorFlag,F
+    BTFSS STATUS,2
+    RETURN
+
+    ; Send register pointer
+    MOVF PointerByte,W
+    CALL I2CSend
+    MOVF ErrorFlag,F
+    BTFSS STATUS,2
+    RETURN
+
+    ; Generate STOP
+    CALL I2CStop
+    RETURN
+
+WriteRegister:
+    ; Write Two Bytes to ADS1115
+    ; Generate START
+    CALL I2CStart
+    MOVF ErrorFlag,F
+    BTFSS STATUS,2
+    RETURN
+
+    ; Send address + Write
+    MOVLW ADSWrite
+    CALL I2CSend
+    MOVF ErrorFlag,F
+    BTFSS STATUS,2
+    RETURN
+
+    ; Send register pointer
+    MOVF PointerByte,W
+    CALL I2CSend
+    MOVF ErrorFlag,F
+    BTFSS STATUS,2
+    RETURN
+
+    ; Send upper data byte
+    MOVF DataHigh,W
+    CALL I2CSend
+    MOVF ErrorFlag,F
+    BTFSS STATUS,2
+    RETURN
+
+    ; Send lower data byte
+    MOVF DataLow,W
+    CALL I2CSend
+    MOVF ErrorFlag,F
+    BTFSS STATUS,2
+    RETURN
+
+    ; Generate STOP
+    CALL I2CStop
+    RETURN
+
+ReadRegister:
+    ; Read Two Bytes from ADS1115
+    ; Generate START
+    CALL I2CStart
+    MOVF ErrorFlag,F
+    BTFSS STATUS,2
+    RETURN
+
+    ; Send address + Read
+    MOVLW ADSRead
+    CALL I2CSend
+    MOVF ErrorFlag,F
+    BTFSS STATUS,2
+    RETURN
+
+    ; Receive upper data byte
+    CALL I2CReceive
+    MOVF ErrorFlag,F
+    BTFSS STATUS,2
+    RETURN
+
+    MOVF RxByte,W
+    MOVWF DataHigh
+
+    ; PIC sends ACK
+    CALL I2CAck
+    MOVF ErrorFlag,F
+    BTFSS STATUS,2
+    RETURN
+
+    ; Receive lower data byte
+    CALL I2CReceive
+    MOVF ErrorFlag,F
+    BTFSS STATUS,2
+    RETURN
+    MOVF RxByte,W
+    MOVWF DataLow
+
+    ; PIC sends NACK
+    CALL I2CNack
+    MOVF ErrorFlag,F
+    BTFSS STATUS,2
+    RETURN
+
+    ; Generate STOP
+    CALL I2CStop
+    RETURN
+
+I2CStart:
+    ; Generate I2C START
+    ; Check that SCL and SDA are HIGH
+    BANKSEL PORTC
+    BTFSS PORTC,3
+    GOTO BusLow
+
+    BTFSS PORTC,4
+    GOTO BusLow
+
+    ; Clear SSPIF
+    BANKSEL PIR1
+    BCF PIR1,3
+
+    ; Generate START
+    BANKSEL SSPCON2
+    BSF SSPCON2,0      ; SEN = 1
+    CALL WaitSSPIF
+    RETURN
+
+BusLow:
+    ; Bus LOW error
+    BSF ErrorFlag,2
+    BANKSEL PORTA
+    BSF PORTA,0        ; RA0 HIGH
+    RETURN
+
+I2CSend:
+    ; Send One I2C Byte
+    ; Clear SSPIF
+    BANKSEL PIR1
+    BCF PIR1,3
+
+    ; Send byte
+    BANKSEL SSPBUF
+    MOVWF SSPBUF
+    CALL WaitSSPIF
+
+    ; Check for timeout
+    BTFSC ErrorFlag,1
+    RETURN
+
+    ; Check ACK or NACK
+    BANKSEL SSPCON2
+    BTFSS SSPCON2,6
+    RETURN             ; ACK received
+
+    ; NACK received
+    BSF ErrorFlag,0
+    BANKSEL PORTA
+    BSF PORTA,0        ; RA0 HIGH
+
+    ; Attempt STOP after NACK
+    CALL I2CStop
+    RETURN 
+
+I2CReceive:
+    ; Receive One I2C Byte
+    ; Clear SSPIF
+    BANKSEL PIR1
+    BCF PIR1,3
+
+    ; Enable receive
+    BANKSEL SSPCON2
+    BSF SSPCON2,3      ; RCEN = 1
+    CALL WaitSSPIF
+
+    ; Do not use data after timeout
+    BTFSC ErrorFlag,1
+    RETURN
+
+    ; Save received byte
+    BANKSEL SSPBUF
+    MOVF SSPBUF,W
+    MOVWF RxByte
+    RETURN
+    
+I2CAck:
+    ; PIC Sends ACK
+    BANKSEL PIR1
+    BCF PIR1,3
+    BANKSEL SSPCON2
+    BCF SSPCON2,5      ; ACKDT = 0
+    BSF SSPCON2,4      ; ACKEN = 1
+    CALL WaitSSPIF
+    RETURN
+
+I2CNack:
+    ; PIC Sends NACK 
+    BANKSEL PIR1
+    BCF PIR1,3
+    BANKSEL SSPCON2
+    BSF SSPCON2,5      ; ACKDT = 1
+    BSF SSPCON2,4      ; ACKEN = 1
+    CALL WaitSSPIF
+    RETURN
+
+I2CStop:
+    ; Generate I2C STOP 
+    BANKSEL PIR1
+    BCF PIR1,3
+    BANKSEL SSPCON2
+    BSF SSPCON2,2      ; PEN = 1
+    CALL WaitSSPIF
+    RETURN
+
+WaitSSPIF:
+    ; Wait for I2C Operation
+    ; Set timeout counters
+    MOVLW 0xFF
+    MOVWF WaitCount
+    MOVWF WaitOuter
+
+WaitI2C:
+    BANKSEL PIR1
+    BTFSC PIR1,3
+    GOTO I2CDone
+    DECFSZ WaitCount,F
+    GOTO WaitI2C
+    DECFSZ WaitOuter,F
+    GOTO WaitI2C
+
+    ; I2C timeout
+    BSF ErrorFlag,1
+    BANKSEL PORTA
+    BSF PORTA,0        ; RA0 HIGH
+    RETURN
+
+I2CDone:
+    BANKSEL PIR1
+    BCF PIR1,3         ; Clear SSPIF
+    RETURN
+
+WaitTimer:
+    ; Reset Timer0
+    BANKSEL TMR0
+    CLRF TMR0
+
+    BCF INTCON,2       ; Clear overflow flag
+
+    ; Set overflow count
+    MOVLW TimerOverflows
+    MOVWF TimerCount
+
+TimerWait:
+    BTFSS INTCON,2
+    GOTO TimerWait
+    BCF INTCON,2       ; Clear overflow flag
+    DECFSZ TimerCount,F
+    GOTO TimerWait
     RETURN
 
 END
