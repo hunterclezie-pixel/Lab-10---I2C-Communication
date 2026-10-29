@@ -112,13 +112,12 @@ Setup:
 GOTO Main
 
 Main:
-    GOTO AddressTest
-    ; GOTO ReadConfigTest
-    ; GOTO WriteConfigTest
-    ; GOTO VerifyConfigTest
-    ; GOTO ContinuousTest
-    ; GOTO ReadyTest
-    ; Start one address test
+    ; GOTO AddressTest	    ; Test ADS1115 addresses for ACK or NACK
+    ; GOTO ReadConfigTest   ; Read the original Config register (0x8583)
+    ; GOTO WriteConfigTest  ; Write new ADC settings to Config (0x4083)
+    ; GOTO VerifyConfigTest ; Read Config to verify the new settings
+    GOTO ContinuousTest   ; Continuously read ADC values using Timer0
+    ; GOTO ReadyTest	    ; Enable ALERT/RDY to measure conversion timing
 
 AddressTest:
     ; Start one address test
@@ -202,11 +201,46 @@ VerifyConfigTest:
  
 ContinuousTest:
     ; Configure ADC once at startup
+    ; MOVLW 0x01
+    ; MOVWF PointerByte
+    ; MOVLW 0x40
+    ; MOVWF DataHigh
+    ; MOVLW 0x83
+    ; MOVWF DataLow
+    ; CALL WriteRegister
+    ; MOVF ErrorFlag,F
+    ; BTFSS STATUS,2
+    ; GOTO Halt
+    
+    ; This section is for testing step 6
+    ; Set Lo_thresh = 0x0000
+    MOVLW 0x02
+    MOVWF PointerByte
+    CLRF DataHigh
+    CLRF DataLow
+    CALL WriteRegister
+    MOVF ErrorFlag,F
+    BTFSS STATUS,2
+    GOTO Halt
+
+    ; Set Hi_thresh = 0x8000
+    MOVLW 0x03
+    MOVWF PointerByte
+    MOVLW 0x80
+    MOVWF DataHigh
+    CLRF DataLow
+    CALL WriteRegister
+    MOVF ErrorFlag,F
+    BTFSS STATUS,2
+    GOTO Halt
+
+    ; Enable ALERT/RDY
+    ; Config = 0x4080
     MOVLW 0x01
     MOVWF PointerByte
     MOVLW 0x40
     MOVWF DataHigh
-    MOVLW 0x83
+    MOVLW 0x80
     MOVWF DataLow
     CALL WriteRegister
     MOVF ErrorFlag,F
