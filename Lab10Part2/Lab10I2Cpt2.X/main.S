@@ -26,7 +26,7 @@
 ; config statements should precede project file includes.
 #include <xc.inc>  
     ; General Purpose Registers
-    ErrorFlag   EQU 0x70    ; Bit 0 = NACK, Bit 1 = Timeout
+    ErrorFlag   EQU 0x70    ; Bit 0 = NACK, Bit 1 = Timeout, Bit 2 = Bus LOW
     WaitCount   EQU 0x71    ; I2C timeout counter
     PointerByte EQU 0x72    ; ADS1115 register pointer
     DataHigh    EQU 0x73    ; Upper data byte
@@ -99,12 +99,15 @@ Setup:
     BCF INTCON,2       ; Clear Timer0 overflow flag
 
     ; Clear variables
+    BANKSEL ErrorFlag
     CLRF ErrorFlag
     CLRF TimerCount
     CLRF PointerByte
     CLRF DataHigh
     CLRF DataLow
     CLRF RxByte
+    CLRF WaitCount
+    CLRF WaitOuter
     
 GOTO Main
 
@@ -473,6 +476,7 @@ I2CStart:
 
 BusLow:
     ; Bus LOW error
+    BANKSEL ErrorFlag
     BSF ErrorFlag,2
     BANKSEL PORTA
     BSF PORTA,0        ; RA0 HIGH
@@ -499,6 +503,7 @@ I2CSend:
     RETURN             ; ACK received
 
     ; NACK received
+    BANKSEL ErrorFlag
     BSF ErrorFlag,0
     BANKSEL PORTA
     BSF PORTA,0        ; RA0 HIGH
@@ -588,7 +593,6 @@ WaitTimer:
     ; Reset Timer0
     BANKSEL TMR0
     CLRF TMR0
-
     BCF INTCON,2       ; Clear overflow flag
 
     ; Set overflow count
