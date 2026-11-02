@@ -43,7 +43,7 @@
 
     ; Timer0 settings from Part 2
     TimerOption EQU 0x07    ; 1:256 prescaler
-    TimerOverflows EQU .15  ; About 0.983 seconds at 4 MHz
+    TimerOverflows EQU 15   ; About 0.983 seconds at 4 MHz
 
 ; Reset Vector
 PSECT resetVect,class=CODE,delta=2
@@ -113,11 +113,11 @@ Setup:
 GOTO Main
 
 Main:
-    GOTO AddressTest       ; Step 1 - Test correct slave address for ACK
+    ; GOTO AddressTest       ; Step 1 - Test correct slave address for ACK
     ; GOTO WrongAddressTest ; Step 1 - Test incorrect address for NACK
     ; GOTO WriteByteTest   ; Step 2 - Send 0xA5 to slave
     ; GOTO ReadByteTest    ; Step 2 - Receive 0x5A from slave
-    ; GOTO PointerA5Test   ; Step 3 - Write and read back pointer 0xA5
+    GOTO PointerA5Test   ; Step 3 - Write and read back pointer 0xA5
     ; GOTO Pointer3CTest   ; Step 3 - Write and read back pointer 0x3C
     ; GOTO SwitchTest      ; Step 4 - Continuously read RB5:RB0 switches
     ; GOTO StatusTest      ; Step 4 - Read slave status register
@@ -239,7 +239,6 @@ PointerEcho:
 
     ; Read the selected pointer back
     CALL ReadOne       ; Returned pointer stored in DataLow
-
     GOTO Halt
 
 ; Step 4 - Continuously Read Slave Switches
@@ -643,6 +642,10 @@ I2CNack:
 
     ; Wait until NACK finishes
     CALL WaitSSPIF
+    
+    ; Indicate NACK on RA0
+    BANKSEL PORTA
+    BSF PORTA,0        ; RA0 HIGH on NACK
     RETURN
 
 I2CStop:

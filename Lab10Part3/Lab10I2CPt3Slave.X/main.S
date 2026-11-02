@@ -49,7 +49,7 @@
     ; 1 = Step 1/2 fixed byte testing
     ; 2 = Step 3 pointer echo testing
     ; 3 = Steps 4/5/6 full register interface
-    SlaveMode EQU 1
+    SlaveMode EQU 2
 
     ; PORTB stretch: 0=normal, 1=~100us, 2=~1ms, 3=~10ms
     StretchTest EQU 0
@@ -93,7 +93,7 @@ Setup:
     CLRF PORTC          ; Clear PORTC outputs
 
     BANKSEL TRISC
-    MOVLW b'00011000'   ; RC3 and RC4 are inputs
+    MOVLW 0b00011000    ; RC3 and RC4 are inputs
     MOVWF TRISC         ; Other PORTC pins are outputs
 
     ; RC3 = I2C clock (SCL)
@@ -180,8 +180,8 @@ Main:
 
     ; Check if display needs to be updated
     CALL UpdateDisplay
-    GOTO Main           ; Repeat continuously
-
+    GOTO Main           
+    
 ; Service I2C Communication
 ServiceI2C:
     ; Check for MSSP receive overflow or write collision
@@ -213,19 +213,18 @@ ServiceI2C:
     GOTO SlaveFinish
     GOTO SlaveReceiveData
 
-; Handle Slave Address Event
 SlaveAddressEvent:
-    ; Read SSPBUF to clear the buffer-full condition
+    ; Read matched address
     BANKSEL SSPBUF
-    MOVF SSPBUF,W       ; Read matched address
+    MOVF SSPBUF,W
 
     ; Check if master wants to read or write
     BANKSEL SSPSTAT
-    BTFSC SSPSTAT,2     ; R/W = 1 means master wants data
+    BTFSC SSPSTAT,2
     GOTO SlaveReadStart
 
     ; Master is writing to slave
-    CLRF RxCount        ; Reset received byte counter
+    CLRF RxCount
     GOTO SlaveFinish
 
 ; Start Slave Read Transaction
@@ -488,7 +487,7 @@ StretchDelay:
     RETURN              ; No extra delay selected
 
 Stretch100us:
-    MOVLW .25           ; Load short delay count
+    MOVLW 25           ; Load short delay count
     MOVWF DelayCount
 
 Delay100Loop:
@@ -498,7 +497,7 @@ Delay100Loop:
     RETURN
 
 Stretch1ms:
-    MOVLW .10           ; Repeat short delay ten times
+    MOVLW 10           ; Repeat short delay ten times
     MOVWF DelayOuter
 
 Delay1msLoop:
@@ -508,7 +507,7 @@ Delay1msLoop:
     RETURN
 
 Stretch10ms:
-    MOVLW .100          ; Repeat short delay 100 times
+    MOVLW 100          ; Repeat short delay 100 times
     MOVWF DelayOuter
 
 Delay10msLoop:
