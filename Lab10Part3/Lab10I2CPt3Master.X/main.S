@@ -1,6 +1,6 @@
 // Hunter Clezie
 // RCET3375
-// Lab10I2CPt2
+// Lab10I2CPt3Master
 // https://github.com/hunterclezie-pixel/Lab-10---I2C-Communication.git
 
 ; PIC16F883 Configuration Bit Settings
@@ -24,393 +24,377 @@
   CONFIG  WRT = OFF             ; Flash Program Memory Self Write Enable bits (Write protection off)
 
 ; config statements should precede project file includes.
-#include <xc.inc>  
-    ; General Purpose Registers
-    ErrorFlag   EQU 0x70    ; Bit 0 = NACK, Bit 1 = Timeout, Bit 2 = Bus LOW
+#include <xc.inc>
+    ; General Purpose Registers (shared RAM)
+    ErrorFlag   EQU 0x70    ; Bit 0 = NACK, 1 = timeout, 2 = bus LOW
     WaitCount   EQU 0x71    ; I2C timeout counter
-    PointerByte EQU 0x72    ; ADS1115 register pointer
-    DataHigh    EQU 0x73    ; Upper data byte
-    DataLow     EQU 0x74    ; Lower data byte
-    RxByte      EQU 0x75    ; Received I2C byte
-    TimerCount  EQU 0x76    ; Counts Timer0 overflows
-    WaitOuter   EQU 0x77    ; Second timeout counter
-   
-    ; ADS1115 Address
-    ADSWrite	EQU 0x90      ; ADDR = GND, Write
-    ADSRead	EQU 0x91      ; ADDR = GND, Read
+    PointerByte EQU 0x72    ; Slave register pointer
+    DataHigh    EQU 0x73    ; ADC upper byte
+    DataLow     EQU 0x74    ; Received byte / ADC lower byte
+    RxByte      EQU 0x75    ; Most recent received byte
+    TimerCount  EQU 0x76    ; Timer0 overflow counter
+    WaitOuter   EQU 0x77    ; Second I2C timeout counter
 
-    ; Timer0 Settings
-    TimerOption EQU 0x07   ; 1:256  prescaler
-    TimerOverflows EQU 15  ; 15 overflows
- 
-; Reset Vector at 0000h. Execution starts here after reset.
+    ; PIC slave address 0x20
+    SlaveWrite EQU 0x40     ; Address with Write bit
+    SlaveRead  EQU 0x41     ; Address with Read bit
+    OtherWrite EQU 0x42     ; Incorrect address 0x21
+    DisplayLetter EQU 0x41  ; ASCII 'A' (change to 0x42 for 'B')
+
+    ; Timer0 settings from Part 2
+    TimerOption EQU 0x07    ; 1:256 prescaler
+    TimerOverflows EQU .15  ; About 0.983 seconds at 4 MHz
+
+; Reset Vector
 PSECT resetVect,class=CODE,delta=2
 ResetVector:
-    goto Setup
+    GOTO Setup
 
-; Interrupt Vector
+; Interrupt Vector (not used)
 PSECT isrVect,class=CODE,delta=2
 
-; Main code section starts at 0008h. User code goes here.
+; Main Code
 PSECT code,class=CODE,delta=2
 
 Setup:
-    ; Disable analog inputs
+    ; Disable analog inputs so the pins work as digital I/O
     BANKSEL ANSEL
-    CLRF ANSEL
-    CLRF ANSELH
+    CLRF ANSEL         ; Disable analog inputs AN0-AN7
+    CLRF ANSELH        ; Disable remaining analog inputs
 
     ; Set up PORTA diagnostic outputs
     BANKSEL PORTA
-    CLRF PORTA         ; RA0 and RA1 start LOW
-
+    CLRF PORTA         ; Start all PORTA outputs LOW
+    
     BANKSEL TRISA
-    BCF TRISA,0        ; RA0 = NACK indicator
-    BCF TRISA,1        ; RA1 = Timer diagnostic
+    BCF TRISA,0        ; RA0 = NACK / error indicator
+    BCF TRISA,1        ; RA1 = I2C transaction indicator
 
-    ; Set up I2C pins
+    ; Set up I2C communication pins
     BANKSEL TRISC
-    BSF TRISC,3        ; RC3 = SCL
-    BSF TRISC,4        ; RC4 = SDA
+    BSF TRISC,3        ; RC3 = SCL, I2C clock
+    BSF TRISC,4        ; RC4 = SDA, I2C data
 
     ; Set up MSSP for I2C Master Mode
     BANKSEL SSPCON
-    CLRF SSPCON
+    CLRF SSPCON        ; Clear previous MSSP settings
     BANKSEL SSPCON2
-    CLRF SSPCON2
+    CLRF SSPCON2       ; Clear I2C control settings
     BANKSEL SSPCON
-    MOVLW 0x28         ; Enable MSSP, I2C Master Mode
+    MOVLW 0x28         ; Enable MSSP in I2C Master Mode
     MOVWF SSPCON
-
     BANKSEL SSPSTAT
-    BSF SSPSTAT,7      ; Standard Speed (100 kHz)
+    BSF SSPSTAT,7      ; Set standard-speed I2C operation
 
-    ; Set I2C clock to 100 kHz
+    ; Set I2C clock to 100 kHz using 4 MHz oscillator
     BANKSEL SSPADD
-    MOVLW 0x09         ; 4 MHz / (4 x (9 + 1))
-    MOVWF SSPADD
-    
-    ; Set up Timer0
+    MOVLW 0x09         ; 4 MHz / (4 x (9 + 1)) = 100 kHz
+    MOVWF SSPADD       ; Set I2C clock speed
+
+    ; Set up Timer0 for delays between transactions
     BANKSEL OPTION_REG
-    MOVLW TimerOption
+    MOVLW TimerOption  ; Load Timer0 prescaler settings
     MOVWF OPTION_REG
+
     BANKSEL TMR0
-    CLRF TMR0
+    CLRF TMR0          ; Start Timer0 at zero
     BCF INTCON,2       ; Clear Timer0 overflow flag
 
-    ; Clear variables
-    BANKSEL ErrorFlag
-    CLRF ErrorFlag
-    CLRF TimerCount
-    CLRF PointerByte
-    CLRF DataHigh
-    CLRF DataLow
-    CLRF RxByte
-    CLRF WaitCount
-    CLRF WaitOuter
-    
+    ; Clear variables before starting the program
+    CLRF ErrorFlag     ; Clear any previous errors
+    CLRF WaitCount     ; Clear I2C timeout counter
+    CLRF PointerByte   ; Clear selected slave register
+    CLRF DataHigh      ; Clear upper data byte
+    CLRF DataLow       ; Clear lower data byte
+    CLRF RxByte        ; Clear received I2C byte
+    CLRF TimerCount    ; Clear Timer0 overflow counter
+    CLRF WaitOuter     ; Clear second timeout counter
+
 GOTO Main
 
 Main:
-    ; GOTO AddressTest	    ; Test ADS1115 addresses for ACK or NACK
-    ; GOTO ReadConfigTest   ; Read the original Config register (0x8583)
-    ; GOTO WriteConfigTest  ; Write new ADC settings to Config (0x4083)
-    ; GOTO VerifyConfigTest ; Read Config to verify the new settings
-    GOTO ContinuousTest   ; Continuously read ADC values using Timer0
-    ; GOTO ReadyTest	    ; Enable ALERT/RDY to measure conversion timing
+    GOTO AddressTest       ; Step 1 - Test correct slave address for ACK
+    ; GOTO WrongAddressTest ; Step 1 - Test incorrect address for NACK
+    ; GOTO WriteByteTest   ; Step 2 - Send 0xA5 to slave
+    ; GOTO ReadByteTest    ; Step 2 - Receive 0x5A from slave
+    ; GOTO PointerA5Test   ; Step 3 - Write and read back pointer 0xA5
+    ; GOTO Pointer3CTest   ; Step 3 - Write and read back pointer 0x3C
+    ; GOTO SwitchTest      ; Step 4 - Continuously read RB5:RB0 switches
+    ; GOTO StatusTest      ; Step 4 - Read slave status register
+    ; GOTO DisplayTest     ; Step 5 - Send ASCII character to display
+    ; GOTO ADCTest         ; Step 6 - Continuously read 10-bit ADC
 
+; Step 1 - Test Correct Slave Address
 AddressTest:
-    ; Start one address test
     BANKSEL PORTA
-    BCF PORTA,0        ; Clear NACK indicator
-    BCF PORTA,1        ; Clear timer diagnostic
-    BSF PORTA,1        ; RA1 HIGH
-    CALL AddressProbe
-    BANKSEL PORTA
-    BCF PORTA,1        ; RA1 LOW
-    GOTO Halt
-
-ReadConfigTest:
-    ; Read Config Register
-    BANKSEL PORTA
-    BCF PORTA,0
-    BSF PORTA,1        ; RA1 HIGH
-
-    ; Select Config register
-    MOVLW 0x01
-    MOVWF PointerByte
-    CALL SelectRegister
-    MOVF ErrorFlag,F
-    BTFSS STATUS,2
-    GOTO Halt
-
-    ; Read Config MSB and LSB
-    CALL ReadRegister
-    MOVF ErrorFlag,F
-    BTFSS STATUS,2
-    GOTO Halt
-    BANKSEL PORTA
-    BCF PORTA,1        ; RA1 LOW
-    GOTO Halt
-
-WriteConfigTest:
-    ; Write Config Register
-    BANKSEL PORTA
-    BCF PORTA,0
-    BSF PORTA,1        ; RA1 HIGH
-
-    ; Select Config register
-    MOVLW 0x01
-    MOVWF PointerByte
-
-    ; Config = 0x4083
-    MOVLW 0x40
-    MOVWF DataHigh
-    MOVLW 0x83
-    MOVWF DataLow
-    CALL WriteRegister
-    MOVF ErrorFlag,F
-    BTFSS STATUS,2
-    GOTO Halt
-    BANKSEL PORTA
-    BCF PORTA,1        ; RA1 LOW
-    GOTO Halt
-
-VerifyConfigTest:
-    ; Verify Config Register
-    BANKSEL PORTA
-    BCF PORTA,0
-    BSF PORTA,1        ; RA1 HIGH
-
-    ; Select Config register
-    MOVLW 0x01
-    MOVWF PointerByte
-    CALL SelectRegister
-    MOVF ErrorFlag,F
-    BTFSS STATUS,2
-    GOTO Halt
-
-    ; Read Config register
-    CALL ReadRegister
-    MOVF ErrorFlag,F
-    BTFSS STATUS,2
-    GOTO Halt
-    BANKSEL PORTA
-    BCF PORTA,1
-    GOTO Halt
- 
-ContinuousTest:
-    ; Configure ADC once at startup
-    ; MOVLW 0x01
-    ; MOVWF PointerByte
-    ; MOVLW 0x40
-    ; MOVWF DataHigh
-    ; MOVLW 0x83
-    ; MOVWF DataLow
-    ; CALL WriteRegister
-    ; MOVF ErrorFlag,F
-    ; BTFSS STATUS,2
-    ; GOTO Halt
-    
-    ; This section is for testing step 6
-    ; Set Lo_thresh = 0x0000
-    MOVLW 0x02
-    MOVWF PointerByte
-    CLRF DataHigh
-    CLRF DataLow
-    CALL WriteRegister
-    MOVF ErrorFlag,F
-    BTFSS STATUS,2
-    GOTO Halt
-
-    ; Set Hi_thresh = 0x8000
-    MOVLW 0x03
-    MOVWF PointerByte
-    MOVLW 0x80
-    MOVWF DataHigh
-    CLRF DataLow
-    CALL WriteRegister
-    MOVF ErrorFlag,F
-    BTFSS STATUS,2
-    GOTO Halt
-
-    ; Enable ALERT/RDY
-    ; Config = 0x4080
-    MOVLW 0x01
-    MOVWF PointerByte
-    MOVLW 0x40
-    MOVWF DataHigh
-    MOVLW 0x80
-    MOVWF DataLow
-    CALL WriteRegister
-    MOVF ErrorFlag,F
-    BTFSS STATUS,2
-    GOTO Halt
-
-ADCMain:
-    ; Wait for Timer0 interval
-    CALL WaitTimer
-
-    ; Start ADC transaction
-    BANKSEL PORTA
-    BCF PORTA,0
-    BSF PORTA,1        ; RA1 HIGH
-
-    ; Select Conversion register
-    MOVLW 0x00
-    MOVWF PointerByte
-    CALL SelectRegister
-    MOVF ErrorFlag,F
-    BTFSS STATUS,2
-    GOTO Halt
-
-    ; Read two ADC bytes
-    CALL ReadRegister
-    MOVF ErrorFlag,F
-    BTFSS STATUS,2
-    GOTO Halt
-    BANKSEL PORTA
-    BCF PORTA,1        ; RA1 LOW
-    GOTO ADCMain
-
-ReadyTest:
-    ; Enable Conversion Ready
-    BANKSEL PORTA
-    BCF PORTA,0
-    BSF PORTA,1        ; RA1 HIGH
-
-    ; Set Lo_thresh = 0x0000
-    MOVLW 0x02
-    MOVWF PointerByte
-    CLRF DataHigh
-    CLRF DataLow
-    CALL WriteRegister
-    MOVF ErrorFlag,F
-    BTFSS STATUS,2
-    GOTO Halt
-
-    ; Set Hi_thresh = 0x8000
-    MOVLW 0x03
-    MOVWF PointerByte
-    MOVLW 0x80
-    MOVWF DataHigh
-    CLRF DataLow
-    CALL WriteRegister
-    MOVF ErrorFlag,F
-    BTFSS STATUS,2
-    GOTO Halt
-
-    ; Enable ALERT/RDY
-    ; Config = 0x4080
-    MOVLW 0x01
-    MOVWF PointerByte
-    MOVLW 0x40
-    MOVWF DataHigh
-    MOVLW 0x80
-    MOVWF DataLow
-    CALL WriteRegister
-    MOVF ErrorFlag,F
-    BTFSS STATUS,2
-    GOTO Halt
-    BANKSEL PORTA
-    BCF PORTA,1        ; RA1 LOW
-
-    ; ADS1115 continues converting
-    GOTO Halt
-
-Halt:
-    ; Do-Nothing Loop
-    BANKSEL PORTA
-    BCF PORTA,1        ; RA1 LOW
-    GOTO Halt
-    
-AddressProbe:
-    ; Clear NACK indicator before each probe
-    BANKSEL PORTA
-    BCF PORTA,0        ; RA0 LOW
+    BSF PORTA,1        ; RA1 HIGH, transaction begins
 
     ; Generate START condition
-    BANKSEL PIR1
-    BCF PIR1,3         ; Clear SSPIF
-    BANKSEL SSPCON2
-    BSF SSPCON2,0      ; SEN = 1, start I2C
-
-WaitStart:
-    BTFSC SSPCON2,0    ; Wait until START finishes
-    GOTO WaitStart
-
-    ; Send 7-bit ADS1115 addresses with R/W = 0
-    BANKSEL PIR1
-    BCF PIR1,3         ; Clear SSPIF
-    
-    ; Commented out until needed for testing
-    MOVLW 0x90         ; Address 0x48, Write = 0
-    ; MOVLW 0x92       ; Address 0x49, Write = 0
-    ; MOVLW 0x94       ; Address 0x4A, Write = 0
-    ; MOVLW 0x96       ; Address 0x4B, Write = 0
-    BANKSEL SSPBUF
-    MOVWF SSPBUF       ; Send address byte
-
-WaitAddress:
-    BANKSEL PIR1
-    BTFSS PIR1,3       ; Wait for transmission
-    GOTO WaitAddress
-
-    ; Check ACK or NACK
-    BANKSEL SSPCON2
-    BTFSS SSPCON2,6    ; ACKSTAT = 1 means NACK
-    GOTO SendStop      ; ACK received
-    BANKSEL PORTA
-    BSF PORTA,0        ; NACK received, RA0 HIGH
-
-SendStop:
-    ; Generate STOP condition
-    BANKSEL PIR1
-    BCF PIR1,3
-    BANKSEL SSPCON2
-    BSF SSPCON2,2      ; PEN = 1, generate STOP
-
-WaitStop:
-    BTFSC SSPCON2,2    ; Wait until STOP finishes
-    GOTO WaitStop
-    RETURN
-    
-SelectRegister:
-    ; Generate START
     CALL I2CStart
-    MOVF ErrorFlag,F
-    BTFSS STATUS,2
-    RETURN
 
-    ; Send address + Write
-    MOVLW ADSWrite
+    ; Check if an error occurred
+    MOVF ErrorFlag,F
+    BTFSS STATUS,2     ; Skip next instruction if no error
+    GOTO Halt          ; Stop if error occurred
+
+    ; Send correct slave address with Write bit
+    MOVLW SlaveWrite   ; Address 0x20 + Write = 0x40
     CALL I2CSend
+
+    ; Check if slave acknowledged the address
+    MOVF ErrorFlag,F
+    BTFSS STATUS,2
+    GOTO Halt          ; Stop if NACK or another error
+
+    ; Generate STOP after successful address test
+    CALL I2CStop
+    GOTO Halt          ; Wait for MCLR reset
+
+; Step 1 - Test Incorrect Slave Address
+WrongAddressTest:
+    BANKSEL PORTA
+    BSF PORTA,1        ; RA1 HIGH, transaction begins
+
+    ; Generate START condition
+    CALL I2CStart
+
+    ; Check for communication errors
+    MOVF ErrorFlag,F
+    BTFSS STATUS,2
+    GOTO Halt
+
+    ; Send incorrect slave address
+    MOVLW OtherWrite   ; Address 0x21 + Write = 0x42
+    CALL I2CSend       ; NACK sets RA0 HIGH and attempts STOP
+    GOTO Halt          ; Finish address test
+
+; Step 2 - Send One Byte to Slave
+WriteByteTest:
+    BANKSEL PORTA
+    BSF PORTA,1        ; RA1 HIGH, transaction begins
+
+    ; Generate START condition
+    CALL I2CStart
+
+    ; Check for errors
+    MOVF ErrorFlag,F
+    BTFSS STATUS,2
+    GOTO Halt
+
+    ; Send slave address with Write bit
+    MOVLW SlaveWrite   ; Send 0x40
+    CALL I2CSend
+
+    ; Check for ACK
+    MOVF ErrorFlag,F
+    BTFSS STATUS,2
+    GOTO Halt
+
+    ; Send test data byte to slave
+    MOVLW 0xA5         ; Test byte required by lab
+    CALL I2CSend
+
+    ; Check if slave acknowledged data
+    MOVF ErrorFlag,F
+    BTFSS STATUS,2
+    GOTO Halt
+
+    ; End communication
+    CALL I2CStop
+    GOTO Halt
+
+; Step 2 - Read One Byte from Slave
+ReadByteTest:
+    BANKSEL PORTA
+    BSF PORTA,1        ; RA1 HIGH, transaction begins
+
+    ; Read one byte from the slave
+    CALL ReadOne       ; Expected value is 0x5A
+    GOTO Halt          ; Finish test
+
+; Step 3 - Test Register Pointer 0xA5
+PointerA5Test:
+    MOVLW 0xA5         ; First test pointer
+    MOVWF PointerByte  ; Save pointer for transmission
+    GOTO PointerEcho   ; Send pointer and read it back
+
+; Step 3 - Test Register Pointer 0x3C
+Pointer3CTest:
+    MOVLW 0x3C         ; Second test pointer
+    MOVWF PointerByte  ; Save pointer for transmission
+    GOTO PointerEcho   ; Send pointer and read it back
+
+; Step 3 - Read Back Selected Pointer
+PointerEcho:
+    BANKSEL PORTA
+    BSF PORTA,1        ; RA1 HIGH, transaction begins
+
+    ; Send pointer to slave
+    CALL SelectRegister
+
+    ; Check for errors
+    MOVF ErrorFlag,F
+    BTFSS STATUS,2
+    GOTO Halt
+
+    ; Read the selected pointer back
+    CALL ReadOne       ; Returned pointer stored in DataLow
+
+    GOTO Halt
+
+; Step 4 - Continuously Read Slave Switches
+SwitchTest:
+    ; Wait for Timer0 before next reading
+    CALL WaitTimer
+
+    BANKSEL PORTA
+    BSF PORTA,1        ; RA1 HIGH, transaction begins
+
+    ; Select switch register
+    MOVLW 0x00         ; Pointer 0x00 = PORTB switches
+    MOVWF PointerByte
+
+    ; Send pointer to slave
+    CALL SelectRegister
+
+    ; Check for errors
+    MOVF ErrorFlag,F
+    BTFSS STATUS,2
+    GOTO Halt
+
+    ; Read switch positions
+    CALL ReadOne       ; DataLow contains RB5:RB0
+
+    ; Check for errors
+    MOVF ErrorFlag,F
+    BTFSS STATUS,2
+    GOTO Halt
+    BANKSEL PORTA
+    BCF PORTA,1        ; RA1 LOW, transaction finished
+    GOTO SwitchTest    ; Repeat after next timer delay
+
+; Step 4 - Read Slave Device Status
+StatusTest:
+    BANKSEL PORTA
+    BSF PORTA,1        ; RA1 HIGH, transaction begins
+
+    ; Select device status register
+    MOVLW 0x04         ; Pointer 0x04 = Device Status
+    MOVWF PointerByte
+
+    ; Send pointer to slave
+    CALL SelectRegister
+
+    ; Check for errors
+    MOVF ErrorFlag,F
+    BTFSS STATUS,2
+    GOTO Halt
+
+    ; Read status information
+    CALL ReadOne       ; DataLow contains status bits
+    GOTO Halt
+
+; Step 5 - Send ASCII Character to Display
+DisplayTest:
+    BANKSEL PORTA
+    BSF PORTA,1        ; RA1 HIGH, transaction begins
+
+    ; Select display register
+    MOVLW 0x01         ; Pointer 0x01 = DLG7137 display
+    MOVWF PointerByte
+
+    ; Load character to display
+    MOVLW DisplayLetter ; ASCII value of selected character
+    MOVWF DataLow       ; Store character for transmission
+
+    ; Send pointer and character to slave
+    CALL WriteOneRegister
+    GOTO Halt          ; Finish display test
+
+; Step 6 - Continuously Read Slave ADC
+ADCTest:
+    ; Wait for Timer0 before reading ADC
+    CALL WaitTimer
+    BANKSEL PORTA
+    BSF PORTA,1        ; RA1 HIGH, transaction begins
+
+    ; Select ADC register
+    MOVLW 0x02         ; Pointer 0x02 = Slave AN2 ADC
+    MOVWF PointerByte
+
+    ; Send pointer to slave
+    CALL SelectRegister
+
+    ; Check for errors
+    MOVF ErrorFlag,F
+    BTFSS STATUS,2
+    GOTO Halt
+
+    ; Read two bytes containing the ADC result
+    CALL ReadTwo        ; DataHigh = upper 2 bits, DataLow = lower 8 bits
+
+    ; Check for errors
+    MOVF ErrorFlag,F
+    BTFSS STATUS,2
+    GOTO Halt
+
+    BANKSEL PORTA
+    BCF PORTA,1        ; RA1 LOW, transaction finished
+    GOTO ADCTest       ; Repeat after next timer delay
+
+; Do-Nothing Loop
+Halt:
+    BANKSEL PORTA
+    BCF PORTA,1        ; RA1 LOW, transaction finished
+    GOTO Halt          ; Wait until MCLR reset
+
+; Select Slave Register
+SelectRegister:
+    ; Generate START condition
+    CALL I2CStart
+
+    ; Check for errors
     MOVF ErrorFlag,F
     BTFSS STATUS,2
     RETURN
 
-    ; Send register pointer
+    ; Send slave address with Write bit
+    MOVLW SlaveWrite
+    CALL I2CSend
+
+    ; Check for ACK
+    MOVF ErrorFlag,F
+    BTFSS STATUS,2
+    RETURN
+
+    ; Send selected register pointer
     MOVF PointerByte,W
     CALL I2CSend
+
+    ; Check for ACK
     MOVF ErrorFlag,F
     BTFSS STATUS,2
     RETURN
 
-    ; Generate STOP
+    ; Generate STOP condition
     CALL I2CStop
     RETURN
 
-WriteRegister:
-    ; Write Two Bytes to ADS1115
-    ; Generate START
+; Write One Byte to Slave Register
+WriteOneRegister:
+    ; Generate START condition
     CALL I2CStart
+
+    ; Check for errors
     MOVF ErrorFlag,F
     BTFSS STATUS,2
     RETURN
 
-    ; Send address + Write
-    MOVLW ADSWrite
+    ; Send slave address with Write bit
+    MOVLW SlaveWrite
     CALL I2CSend
+
+    ; Check for ACK
     MOVF ErrorFlag,F
     BTFSS STATUS,2
     RETURN
@@ -418,227 +402,314 @@ WriteRegister:
     ; Send register pointer
     MOVF PointerByte,W
     CALL I2CSend
+
+    ; Check for ACK
     MOVF ErrorFlag,F
     BTFSS STATUS,2
     RETURN
 
-    ; Send upper data byte
-    MOVF DataHigh,W
-    CALL I2CSend
-    MOVF ErrorFlag,F
-    BTFSS STATUS,2
-    RETURN
-
-    ; Send lower data byte
+    ; Send one data byte
     MOVF DataLow,W
     CALL I2CSend
+
+    ; Check for ACK
     MOVF ErrorFlag,F
     BTFSS STATUS,2
     RETURN
 
-    ; Generate STOP
+    ; Generate STOP condition
     CALL I2CStop
     RETURN
 
-ReadRegister:
-    ; Read Two Bytes from ADS1115
-    ; Generate START
+; Read One Byte from Slave
+ReadOne:
+    ; Generate START condition
     CALL I2CStart
+
+    ; Check for errors
     MOVF ErrorFlag,F
     BTFSS STATUS,2
     RETURN
 
-    ; Send address + Read
-    MOVLW ADSRead
+    ; Send slave address with Read bit
+    MOVLW SlaveRead
     CALL I2CSend
+
+    ; Check for ACK
     MOVF ErrorFlag,F
     BTFSS STATUS,2
     RETURN
 
-    ; Receive upper data byte
+    ; Receive one byte from slave
     CALL I2CReceive
+
+    ; Check for errors
     MOVF ErrorFlag,F
     BTFSS STATUS,2
     RETURN
 
+    ; Save received byte
+    MOVF RxByte,W
+    MOVWF DataLow      ; Store received byte in DataLow
+
+    ; Send NACK because no more bytes are needed
+    CALL I2CNack
+
+    ; Check for errors
+    MOVF ErrorFlag,F
+    BTFSS STATUS,2
+    RETURN
+
+    ; Generate STOP condition
+    CALL I2CStop
+    RETURN
+    
+; Read Two Bytes from Slave
+ReadTwo:
+    ; Generate START condition
+    CALL I2CStart
+
+    ; Check for errors
+    MOVF ErrorFlag,F
+    BTFSS STATUS,2
+    RETURN
+
+    ; Send slave address with Read bit
+    MOVLW SlaveRead
+    CALL I2CSend
+
+    ; Check for ACK
+    MOVF ErrorFlag,F
+    BTFSS STATUS,2
+    RETURN
+
+    ; Receive first ADC byte
+    CALL I2CReceive
+
+    ; Check for errors
+    MOVF ErrorFlag,F
+    BTFSS STATUS,2
+    RETURN
+
+    ; Save upper ADC byte
     MOVF RxByte,W
     MOVWF DataHigh
 
-    ; PIC sends ACK
+    ; Send ACK to request another byte
     CALL I2CAck
+
+    ; Check for errors
     MOVF ErrorFlag,F
     BTFSS STATUS,2
     RETURN
 
-    ; Receive lower data byte
+    ; Receive second ADC byte
     CALL I2CReceive
+
+    ; Check for errors
     MOVF ErrorFlag,F
     BTFSS STATUS,2
     RETURN
+
+    ; Save lower ADC byte
     MOVF RxByte,W
     MOVWF DataLow
 
-    ; PIC sends NACK
+    ; Send NACK because reading is finished
     CALL I2CNack
+
+    ; Check for errors
     MOVF ErrorFlag,F
     BTFSS STATUS,2
     RETURN
 
-    ; Generate STOP
+    ; Generate STOP condition
     CALL I2CStop
     RETURN
 
 I2CStart:
-    ; Generate I2C START
-    ; Check that SCL and SDA are HIGH
+    ; Check if SCL is HIGH before starting
     BANKSEL PORTC
     BTFSS PORTC,3
-    GOTO BusLow
+    GOTO BusLow        ; Error if SCL is LOW
 
+    ; Check if SDA is HIGH before starting
     BTFSS PORTC,4
-    GOTO BusLow
+    GOTO BusLow        ; Error if SDA is LOW
 
-    ; Clear SSPIF
+    ; Clear I2C interrupt flag
     BANKSEL PIR1
-    BCF PIR1,3
+    BCF PIR1,3         ; SSPIF = 0
 
-    ; Generate START
+    ; Generate START condition
     BANKSEL SSPCON2
-    BSF SSPCON2,0      ; SEN = 1
+    BSF SSPCON2,0      ; SEN = 1, begin START
+
+    ; Wait until START finishes
     CALL WaitSSPIF
     RETURN
 
 BusLow:
-    ; Bus LOW error
-    BANKSEL ErrorFlag
-    BSF ErrorFlag,2
+    ; I2C Bus LOW Error
+    BSF ErrorFlag,2    ; ErrorFlag bit 2 = Bus LOW
     BANKSEL PORTA
-    BSF PORTA,0        ; RA0 HIGH
+    BSF PORTA,0        ; RA0 HIGH, error indicator
     RETURN
 
+
+; I2C Send One Byte
 I2CSend:
-    ; Send One I2C Byte
-    ; Clear SSPIF
+    ; Clear I2C interrupt flag
     BANKSEL PIR1
     BCF PIR1,3
 
-    ; Send byte
+    ; Load byte into MSSP buffer
     BANKSEL SSPBUF
-    MOVWF SSPBUF
+    MOVWF SSPBUF       ; Hardware sends byte on SDA
+
+    ; Wait for transmission to finish
     CALL WaitSSPIF
 
-    ; Check for timeout
+    ; Return if timeout occurred
     BTFSC ErrorFlag,1
     RETURN
 
-    ; Check ACK or NACK
+    ; Check if slave acknowledged byte
     BANKSEL SSPCON2
-    BTFSS SSPCON2,6
-    RETURN             ; ACK received
+    BTFSS SSPCON2,6    ; ACKSTAT = 0 means ACK
+    RETURN             ; Return if ACK received
 
-    ; NACK received
-    BANKSEL ErrorFlag
-    BSF ErrorFlag,0
+    ; Record NACK error
+    BSF ErrorFlag,0    ; ErrorFlag bit 0 = NACK
+
     BANKSEL PORTA
-    BSF PORTA,0        ; RA0 HIGH
+    BSF PORTA,0        ; RA0 HIGH, error indicator
 
     ; Attempt STOP after NACK
     CALL I2CStop
-    RETURN 
+    RETURN
 
+
+; I2C Receive One Byte
 I2CReceive:
-    ; Receive One I2C Byte
-    ; Clear SSPIF
+    ; Clear I2C interrupt flag
     BANKSEL PIR1
     BCF PIR1,3
 
-    ; Enable receive
+    ; Enable I2C receive mode
     BANKSEL SSPCON2
-    BSF SSPCON2,3      ; RCEN = 1
+    BSF SSPCON2,3      ; RCEN = 1, receive one byte
+
+    ; Wait until byte is received
     CALL WaitSSPIF
 
-    ; Do not use data after timeout
+    ; Return if timeout occurred
     BTFSC ErrorFlag,1
     RETURN
 
     ; Save received byte
     BANKSEL SSPBUF
-    MOVF SSPBUF,W
-    MOVWF RxByte
+    MOVF SSPBUF,W      ; Read received byte
+    MOVWF RxByte       ; Save byte for later use
     RETURN
-    
+
 I2CAck:
-    ; PIC Sends ACK
+    ; Clear I2C interrupt flag
     BANKSEL PIR1
     BCF PIR1,3
+
+    ; Set ACK data bit LOW
     BANKSEL SSPCON2
-    BCF SSPCON2,5      ; ACKDT = 0
+    BCF SSPCON2,5      ; ACKDT = 0 means ACK
+
+    ; Start ACK transmission
     BSF SSPCON2,4      ; ACKEN = 1
+
+    ; Wait until ACK finishes
     CALL WaitSSPIF
     RETURN
 
 I2CNack:
-    ; PIC Sends NACK 
+    ; Clear I2C interrupt flag
     BANKSEL PIR1
     BCF PIR1,3
+
+    ; Set ACK data bit HIGH
     BANKSEL SSPCON2
-    BSF SSPCON2,5      ; ACKDT = 1
+    BSF SSPCON2,5      ; ACKDT = 1 means NACK
+
+    ; Start NACK transmission
     BSF SSPCON2,4      ; ACKEN = 1
+
+    ; Wait until NACK finishes
     CALL WaitSSPIF
     RETURN
 
 I2CStop:
-    ; Generate I2C STOP 
+    ; Clear I2C interrupt flag
     BANKSEL PIR1
     BCF PIR1,3
+
+    ; Generate STOP condition
     BANKSEL SSPCON2
-    BSF SSPCON2,2      ; PEN = 1
+    BSF SSPCON2,2      ; PEN = 1, begin STOP
+
+    ; Wait until STOP finishes
     CALL WaitSSPIF
     RETURN
 
 WaitSSPIF:
-    ; Wait for I2C Operation
-    ; Set timeout counters
+    ; Load timeout counters
     MOVLW 0xFF
     MOVWF WaitCount
     MOVWF WaitOuter
 
 WaitI2C:
+    ; Check if I2C operation is finished
     BANKSEL PIR1
-    BTFSC PIR1,3
+    BTFSC PIR1,3       ; SSPIF = 1 means finished
     GOTO I2CDone
+
+    ; Count down while waiting
     DECFSZ WaitCount,F
     GOTO WaitI2C
+
     DECFSZ WaitOuter,F
     GOTO WaitI2C
 
-    ; I2C timeout
-    BSF ErrorFlag,1
+    ; Record timeout error
+    BSF ErrorFlag,1    ; ErrorFlag bit 1 = Timeout
     BANKSEL PORTA
-    BSF PORTA,0        ; RA0 HIGH
+    BSF PORTA,0        ; RA0 HIGH, error indicator
     RETURN
 
 I2CDone:
+    ; Clear I2C interrupt flag
     BANKSEL PIR1
-    BCF PIR1,3         ; Clear SSPIF
+    BCF PIR1,3
     RETURN
 
 WaitTimer:
     ; Reset Timer0
     BANKSEL TMR0
-    CLRF TMR0
+    CLRF TMR0          ; Start timer at zero
     BCF INTCON,2       ; Clear overflow flag
 
-    ; Set overflow count
+    ; Load number of Timer0 overflows
     MOVLW TimerOverflows
     MOVWF TimerCount
 
 TimerWait:
-    BTFSS INTCON,2
+    ; Wait for Timer0 overflow
+    BTFSS INTCON,2     ; T0IF = 1 when Timer0 overflows
     GOTO TimerWait
-    BCF INTCON,2       ; Clear overflow flag
+
+    ; Clear overflow flag
+    BCF INTCON,2
+
+    ; Decrease remaining overflow count
     DECFSZ TimerCount,F
     GOTO TimerWait
-    RETURN
+    RETURN             ; Delay finished
 
 END
