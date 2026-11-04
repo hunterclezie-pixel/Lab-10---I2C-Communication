@@ -49,7 +49,7 @@
     ; 1 = Step 1/2 fixed byte testing
     ; 2 = Step 3 pointer echo testing
     ; 3 = Steps 4/5/6 full register interface
-    SlaveMode EQU 2
+    SlaveMode EQU 3
 
     ; PORTB stretch: 0=normal, 1=~100us, 2=~1ms, 3=~10ms
     StretchTest EQU 0

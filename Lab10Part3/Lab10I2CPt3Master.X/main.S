@@ -113,13 +113,14 @@ Setup:
 GOTO Main
 
 Main:
+    ; Comment out for each step
     ; GOTO AddressTest       ; Step 1 - Test correct slave address for ACK
     ; GOTO WrongAddressTest ; Step 1 - Test incorrect address for NACK
     ; GOTO WriteByteTest   ; Step 2 - Send 0xA5 to slave
     ; GOTO ReadByteTest    ; Step 2 - Receive 0x5A from slave
-    GOTO PointerA5Test   ; Step 3 - Write and read back pointer 0xA5
+    ; GOTO PointerA5Test   ; Step 3 - Write and read back pointer 0xA5
     ; GOTO Pointer3CTest   ; Step 3 - Write and read back pointer 0x3C
-    ; GOTO SwitchTest      ; Step 4 - Continuously read RB5:RB0 switches
+    GOTO SwitchTest      ; Step 4 - Continuously read RB5:RB0 switches
     ; GOTO StatusTest      ; Step 4 - Read slave status register
     ; GOTO DisplayTest     ; Step 5 - Send ASCII character to display
     ; GOTO ADCTest         ; Step 6 - Continuously read 10-bit ADC
