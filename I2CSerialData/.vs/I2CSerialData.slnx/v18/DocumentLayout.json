@@ -1,0 +1,90 @@
+{
+  "Version": 1,
+  "WorkspaceRootPath": "C:\\Users\\clezh\\OneDrive\\Documents\\College Classes\\Robotics\\5th Semester\\Github Labs\\Lab-10---I2C-Communication\\I2CSerialData\\",
+  "Documents": [
+    {
+      "AbsoluteMoniker": "D:0:0:{A6FF11FE-BAFE-6F3D-F63A-8ED2BDCC5FCB}|I2CSerialData\\I2CSerialData.csproj|c:\\users\\clezh\\onedrive\\documents\\college classes\\robotics\\5th semester\\github labs\\lab-10---i2c-communication\\i2cserialdata\\i2cserialdata\\i2cserialdata.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}|Form",
+      "RelativeMoniker": "D:0:0:{A6FF11FE-BAFE-6F3D-F63A-8ED2BDCC5FCB}|I2CSerialData\\I2CSerialData.csproj|solutionrelative:i2cserialdata\\i2cserialdata.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}|Form"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{A6FF11FE-BAFE-6F3D-F63A-8ED2BDCC5FCB}|I2CSerialData\\I2CSerialData.csproj|c:\\users\\clezh\\onedrive\\documents\\college classes\\robotics\\5th semester\\github labs\\lab-10---i2c-communication\\i2cserialdata\\i2cserialdata\\i2cserialdata.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{A6FF11FE-BAFE-6F3D-F63A-8ED2BDCC5FCB}|I2CSerialData\\I2CSerialData.csproj|solutionrelative:i2cserialdata\\i2cserialdata.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{A6FF11FE-BAFE-6F3D-F63A-8ED2BDCC5FCB}|I2CSerialData\\I2CSerialData.csproj|c:\\users\\clezh\\onedrive\\documents\\college classes\\robotics\\5th semester\\github labs\\lab-10---i2c-communication\\i2cserialdata\\i2cserialdata\\i2cserialdata.designer.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{A6FF11FE-BAFE-6F3D-F63A-8ED2BDCC5FCB}|I2CSerialData\\I2CSerialData.csproj|solutionrelative:i2cserialdata\\i2cserialdata.designer.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Users\\clezh\\Downloads\\SerialData_Lab10_Part4.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    }
+  ],
+  "DocumentGroupContainers": [
+    {
+      "Orientation": 0,
+      "VerticalTabListWidth": 256,
+      "DocumentGroups": [
+        {
+          "DockedWidth": 200,
+          "SelectedChildIndex": 4,
+          "Children": [
+            {
+              "$type": "Bookmark",
+              "Name": "ST:0:0:{1c4feeaa-4718-4aa9-859d-94ce25d182ba}"
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 3,
+              "Title": "SerialData_Lab10_Part4.cs",
+              "DocumentMoniker": "C:\\Users\\clezh\\Downloads\\SerialData_Lab10_Part4.cs",
+              "RelativeDocumentMoniker": "..\\..\\..\\..\\..\\..\\..\\..\\Downloads\\SerialData_Lab10_Part4.cs",
+              "ToolTip": "C:\\Users\\clezh\\Downloads\\SerialData_Lab10_Part4.cs",
+              "RelativeToolTip": "..\\..\\..\\..\\..\\..\\..\\..\\Downloads\\SerialData_Lab10_Part4.cs",
+              "ViewState": "AgIAALEDAAAAAAAAAAAAALkDAAABAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2026-11-05T05:40:25.794Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 2,
+              "Title": "I2CSerialData.Designer.cs",
+              "DocumentMoniker": "C:\\Users\\clezh\\OneDrive\\Documents\\College Classes\\Robotics\\5th Semester\\Github Labs\\Lab-10---I2C-Communication\\I2CSerialData\\I2CSerialData\\I2CSerialData.Designer.cs",
+              "RelativeDocumentMoniker": "I2CSerialData\\I2CSerialData.Designer.cs",
+              "ToolTip": "C:\\Users\\clezh\\OneDrive\\Documents\\College Classes\\Robotics\\5th Semester\\Github Labs\\Lab-10---I2C-Communication\\I2CSerialData\\I2CSerialData\\I2CSerialData.Designer.cs",
+              "RelativeToolTip": "I2CSerialData\\I2CSerialData.Designer.cs",
+              "ViewState": "AgIAAA0AAAAAAAAAAAAQwAgAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2026-11-05T04:41:16.063Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 1,
+              "Title": "I2CSerialData.cs",
+              "DocumentMoniker": "C:\\Users\\clezh\\OneDrive\\Documents\\College Classes\\Robotics\\5th Semester\\Github Labs\\Lab-10---I2C-Communication\\I2CSerialData\\I2CSerialData\\I2CSerialData.cs",
+              "RelativeDocumentMoniker": "I2CSerialData\\I2CSerialData.cs",
+              "ToolTip": "C:\\Users\\clezh\\OneDrive\\Documents\\College Classes\\Robotics\\5th Semester\\Github Labs\\Lab-10---I2C-Communication\\I2CSerialData\\I2CSerialData\\I2CSerialData.cs",
+              "RelativeToolTip": "I2CSerialData\\I2CSerialData.cs",
+              "ViewState": "AgIAABAAAAAAAAAAAAAQwDICAABCAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2026-11-05T03:26:54.803Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 0,
+              "Title": "I2CSerialData.cs [Design]",
+              "DocumentMoniker": "C:\\Users\\clezh\\OneDrive\\Documents\\College Classes\\Robotics\\5th Semester\\Github Labs\\Lab-10---I2C-Communication\\I2CSerialData\\I2CSerialData\\I2CSerialData.cs",
+              "RelativeDocumentMoniker": "I2CSerialData\\I2CSerialData.cs",
+              "ToolTip": "C:\\Users\\clezh\\OneDrive\\Documents\\College Classes\\Robotics\\5th Semester\\Github Labs\\Lab-10---I2C-Communication\\I2CSerialData\\I2CSerialData\\I2CSerialData.cs [Design]",
+              "RelativeToolTip": "I2CSerialData\\I2CSerialData.cs [Design]",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2026-11-05T03:22:28.546Z",
+              "EditorCaption": " [Design]"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
