@@ -34,6 +34,7 @@
             PortsComboBox = new ComboBox();
             StatusLabel = new Label();
             CommandsGroupBox = new GroupBox();
+            PacketPreviewTextBox = new TextBox();
             SendButton = new Button();
             RawFrameTextBox = new TextBox();
             OutputTextBox = new TextBox();
@@ -57,7 +58,6 @@
             ExitButton = new Button();
             ComListBox = new ListBox();
             StatusTimer = new System.Windows.Forms.Timer(components);
-            PacketPreviewTextBox = new TextBox();
             ConnectionGroupBox.SuspendLayout();
             CommandsGroupBox.SuspendLayout();
             SavedGroupBox.SuspendLayout();
@@ -105,16 +105,23 @@
             CommandsGroupBox.Controls.Add(OperationComboBox);
             CommandsGroupBox.Location = new Point(199, 12);
             CommandsGroupBox.Name = "CommandsGroupBox";
-            CommandsGroupBox.Size = new Size(185, 328);
+            CommandsGroupBox.Size = new Size(522, 328);
             CommandsGroupBox.TabIndex = 1;
             CommandsGroupBox.TabStop = false;
             CommandsGroupBox.Text = "UART / I2C Commands";
+            // 
+            // PacketPreviewTextBox
+            // 
+            PacketPreviewTextBox.Location = new Point(15, 234);
+            PacketPreviewTextBox.Name = "PacketPreviewTextBox";
+            PacketPreviewTextBox.Size = new Size(501, 27);
+            PacketPreviewTextBox.TabIndex = 7;
             // 
             // SendButton
             // 
             SendButton.Location = new Point(15, 268);
             SendButton.Name = "SendButton";
-            SendButton.Size = new Size(151, 49);
+            SendButton.Size = new Size(501, 49);
             SendButton.TabIndex = 6;
             SendButton.Text = "Send Command";
             SendButton.UseVisualStyleBackColor = true;
@@ -124,14 +131,14 @@
             // 
             RawFrameTextBox.Location = new Point(15, 201);
             RawFrameTextBox.Name = "RawFrameTextBox";
-            RawFrameTextBox.Size = new Size(151, 27);
+            RawFrameTextBox.Size = new Size(501, 27);
             RawFrameTextBox.TabIndex = 5;
             // 
             // OutputTextBox
             // 
             OutputTextBox.Location = new Point(15, 168);
             OutputTextBox.Name = "OutputTextBox";
-            OutputTextBox.Size = new Size(151, 27);
+            OutputTextBox.Size = new Size(501, 27);
             OutputTextBox.TabIndex = 4;
             OutputTextBox.Text = "01 41";
             // 
@@ -140,14 +147,14 @@
             DataModeComboBox.FormattingEnabled = true;
             DataModeComboBox.Location = new Point(15, 134);
             DataModeComboBox.Name = "DataModeComboBox";
-            DataModeComboBox.Size = new Size(151, 28);
+            DataModeComboBox.Size = new Size(501, 28);
             DataModeComboBox.TabIndex = 3;
             // 
             // ReadCountTextBox
             // 
             ReadCountTextBox.Location = new Point(15, 101);
             ReadCountTextBox.Name = "ReadCountTextBox";
-            ReadCountTextBox.Size = new Size(151, 27);
+            ReadCountTextBox.Size = new Size(501, 27);
             ReadCountTextBox.TabIndex = 2;
             ReadCountTextBox.Text = "1";
             // 
@@ -155,7 +162,7 @@
             // 
             AddressTextBox.Location = new Point(15, 68);
             AddressTextBox.Name = "AddressTextBox";
-            AddressTextBox.Size = new Size(151, 27);
+            AddressTextBox.Size = new Size(501, 27);
             AddressTextBox.TabIndex = 1;
             AddressTextBox.Text = "20";
             // 
@@ -164,7 +171,7 @@
             OperationComboBox.FormattingEnabled = true;
             OperationComboBox.Location = new Point(15, 32);
             OperationComboBox.Name = "OperationComboBox";
-            OperationComboBox.Size = new Size(151, 28);
+            OperationComboBox.Size = new Size(501, 28);
             OperationComboBox.TabIndex = 0;
             // 
             // SavedGroupBox
@@ -243,7 +250,7 @@
             ScannerGroupBox.Controls.Add(ScanResultsListBox);
             ScannerGroupBox.Controls.Add(ScanStatusLabel);
             ScannerGroupBox.Controls.Add(ScanButton);
-            ScannerGroupBox.Location = new Point(401, 12);
+            ScannerGroupBox.Location = new Point(727, 12);
             ScannerGroupBox.Name = "ScannerGroupBox";
             ScannerGroupBox.Size = new Size(297, 328);
             ScannerGroupBox.TabIndex = 3;
@@ -291,14 +298,14 @@
             HistoryGroupBox.Controls.Add(ComListBox);
             HistoryGroupBox.Location = new Point(199, 346);
             HistoryGroupBox.Name = "HistoryGroupBox";
-            HistoryGroupBox.Size = new Size(499, 92);
+            HistoryGroupBox.Size = new Size(825, 92);
             HistoryGroupBox.TabIndex = 4;
             HistoryGroupBox.TabStop = false;
             HistoryGroupBox.Text = "Communication History";
             // 
             // ExitButton
             // 
-            ExitButton.Location = new Point(359, 22);
+            ExitButton.Location = new Point(679, 22);
             ExitButton.Name = "ExitButton";
             ExitButton.Size = new Size(134, 64);
             ExitButton.TabIndex = 1;
@@ -311,21 +318,19 @@
             ComListBox.FormattingEnabled = true;
             ComListBox.Location = new Point(6, 22);
             ComListBox.Name = "ComListBox";
-            ComListBox.Size = new Size(347, 64);
+            ComListBox.Size = new Size(667, 64);
             ComListBox.TabIndex = 0;
             // 
-            // PacketPreviewTextBox
+            // StatusTimer
             // 
-            PacketPreviewTextBox.Location = new Point(15, 234);
-            PacketPreviewTextBox.Name = "PacketPreviewTextBox";
-            PacketPreviewTextBox.Size = new Size(151, 27);
-            PacketPreviewTextBox.TabIndex = 7;
+            StatusTimer.Interval = 20;
+            StatusTimer.Tick += StatusTimer_Tick;
             // 
             // I2CSerialData
             // 
             AutoScaleDimensions = new SizeF(8F, 20F);
             AutoScaleMode = AutoScaleMode.Font;
-            ClientSize = new Size(714, 450);
+            ClientSize = new Size(1051, 450);
             Controls.Add(HistoryGroupBox);
             Controls.Add(ScannerGroupBox);
             Controls.Add(SavedGroupBox);

@@ -10,6 +10,21 @@ namespace I2CSerialData
         public I2CSerialData()
         {
             InitializeComponent();
+
+            // Setup ComboBoxes --------------------------------------------------------
+            OperationComboBox.Items.Clear();
+            OperationComboBox.Items.Add("Identify");
+            OperationComboBox.Items.Add("Probe");
+            OperationComboBox.Items.Add("Write");
+            OperationComboBox.Items.Add("Read");
+            OperationComboBox.Items.Add("Raw Frame");
+            OperationComboBox.SelectedIndex = 0;
+
+            DataModeComboBox.Items.Clear();
+            DataModeComboBox.Items.Add("Hex");
+            DataModeComboBox.Items.Add("Text");
+            DataModeComboBox.SelectedIndex = 0;
+
             // Save the log and presets outside the build folder.
             string folder = Path.Combine(
                 Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
@@ -97,8 +112,7 @@ namespace I2CSerialData
         // Custom Methods below here --------------------------------------------------
 
         // Add all UART traffic, errors, and connection changes to the screen and file.
-        void AddToList(string direction, byte[] data, int count, string note,
-                       string port = null, DateTime? time = null)
+        void AddToList(string direction, byte[] data, int count, string note, string port = null, DateTime? time = null)
         {
             if (port == null)
                 port = serialPort.IsOpen ? serialPort.PortName : "none";
@@ -750,57 +764,6 @@ namespace I2CSerialData
         }
 
         // Event Handlers below here ---------------------------------------------------
-        private void StatusTimer_Tick(object sender, EventArgs e)
-        {
-            if (closing) return;
-
-            if (!verified)
-            {
-                if (!searching && DateTime.Now >= nextSearch) StartDiscovery();
-                UpdateButtons();
-                return;
-            }
-
-            try
-            {
-                if (!serialPort.IsOpen)
-                {
-                    LostConnection("Serial port closed");
-                    return;
-                }
-
-                if (DateTime.Now >= nextPortCheck)
-                {
-                    nextPortCheck = DateTime.Now.AddSeconds(1);
-                    if (Array.IndexOf(SerialPort.GetPortNames(), serialPort.PortName) == -1)
-                    {
-                        LostConnection("COM port disappeared");
-                        return;
-                    }
-                }
-
-                while (verified && serialPort.BytesToRead > 0)
-                    ReceiveByte((byte)serialPort.ReadByte());
-
-                if (!verified) return;
-                if (waiting && DateTime.Now > deadline) RequestTimedOut();
-                if (!verified) return;
-
-                if (!waiting && DateTime.Now >= nextAllowedRequest)
-                {
-                    if (scanningAddresses)
-                        ScanNextAddress();
-                    else if (DateTime.Now >= nextHeartbeat)
-                    {
-                        nextHeartbeat = DateTime.Now.AddSeconds(1);
-                        SendPacket(IdRequest, "One-second connectivity check", false, true);
-                    }
-                }
-            }
-            catch (Exception ex) { LostConnection("Serial communication error: " + ex.Message); }
-
-            UpdateButtons();
-        }
 
         private void PreviewChanged(object sender, EventArgs e)
         {
@@ -831,26 +794,6 @@ namespace I2CSerialData
             SendPacket(packet, "Manual " + DescribeRequest(packet) +
                                (warning.Length > 0 ? " (boundary test)" : ""));
             UpdateButtons();
-        }
-
-        private void ScanButton_Click(object sender, EventArgs e)
-        {
-            if (scanningAddresses)
-            {
-                scanningAddresses = false;
-                ScanButton.Text = "Scan";
-                Info("Address scan cancelled");
-                return;
-            }
-
-            if (waiting || !verified) return;
-            ScanResultsListBox.Items.Clear();
-            FoundAddressesListBox.Items.Clear();
-            scanIndex = 0;
-            scanningAddresses = true;
-            ScanButton.Text = "Cancel Scan";
-            UpdateScanProgress();
-            Info("Scanning 00-7F; reserved addresses will be skipped");
         }
 
         private void SaveCommandButton_Click(object sender, EventArgs e)
@@ -924,6 +867,116 @@ namespace I2CSerialData
             closing = true;
             StatusTimer.Stop();
             try { serialPort.Close(); serialPort.Dispose(); } catch (Exception) { }
+        }
+
+        private void StatusTimer_Tick(object sender, EventArgs e)
+        {
+            if (closing) return;
+
+            // Search for the PIC if disconnected
+            if (!verified)
+            {
+                if (!searching && DateTime.Now >= nextSearch)
+                {
+                    StartDiscovery();
+                }
+
+                UpdateButtons();
+                return;
+            }
+
+            try
+            {
+                // Check if the serial port is still open
+                if (!serialPort.IsOpen)
+                {
+                    LostConnection("Serial port closed");
+                    return;
+                }
+
+                // Check if the COM port is still available
+                if (DateTime.Now >= nextPortCheck)
+                {
+                    nextPortCheck = DateTime.Now.AddSeconds(1);
+
+                    if (Array.IndexOf(SerialPort.GetPortNames(), serialPort.PortName) == -1)
+                    {
+                        LostConnection("COM port disappeared");
+                        return;
+                    }
+                }
+
+                // Read incoming UART data
+                while (verified && serialPort.BytesToRead > 0)
+                {
+                    ReceiveByte((byte)serialPort.ReadByte());
+                }
+
+                if (!verified) return;
+
+                // Check if a request has timed out
+                if (waiting && DateTime.Now > deadline)
+                {
+                    RequestTimedOut();
+                }
+
+                if (!verified) return;
+
+                // Continue scanning the I2C bus automatically
+                if (scanningAddresses && !waiting)
+                {
+                    if (DateTime.Now >= nextAllowedRequest)
+                    {
+                        ScanNextAddress();
+                    }
+                }
+
+                // Check PIC connection when not scanning
+                else if (!scanningAddresses && !waiting)
+                {
+                    if (DateTime.Now >= nextAllowedRequest &&
+                        DateTime.Now >= nextHeartbeat)
+                    {
+                        nextHeartbeat = DateTime.Now.AddSeconds(1);
+
+                        SendPacket(IdRequest, "One-second connectivity check", false, true);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                LostConnection("Serial communication error: " + ex.Message);
+            }
+
+            UpdateButtons();
+        }
+
+        private void ScanButton_Click(object sender, EventArgs e)
+        {
+            if (scanningAddresses)
+            {
+                scanningAddresses = false;
+                ScanButton.Text = "Scan";
+                Info("Address scan cancelled");
+                return;
+            }
+
+            if (waiting || !verified)
+            {
+                MessageBox.Show("Cannot scan while disconnected or waiting for a response.");
+                return;
+            }
+
+            ScanResultsListBox.Items.Clear();
+            FoundAddressesListBox.Items.Clear();
+            scanIndex = 0;
+            scanningAddresses = true;
+            ScanButton.Text = "Cancel Scan";
+            UpdateScanProgress();
+            Info("Scanning 00-7F; reserved addresses will be skipped");
+
+            // Start scanning immediately instead of waiting for the timer
+            ScanNextAddress();
         }
     }
 }
