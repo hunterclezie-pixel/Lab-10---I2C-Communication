@@ -40,8 +40,6 @@ namespace I2CSerialData
             FormClosing -= SerialData_FormClosing;
             FormClosing += SerialData_FormClosing;
 
-            SendButton.Click += SendButton_Click;
-            ScanButton.Click += ScanButton_Click;
             SaveCommandButton.Click += SaveCommandButton_Click;
             LoadCommandButton.Click += LoadCommandButton_Click;
             DeleteCommandButton.Click += DeleteCommandButton_Click;
@@ -527,7 +525,7 @@ namespace I2CSerialData
 
             if (wasScan)
             {
-                string state = success ? "ACK" : nack ? "NACK" : "Communication error";
+                string state = success ? "ACK" : nack ? "NACK" : "Communication error: " + result;
                 ScanResultsListBox.Items.Add(currentScanAddress.ToString("X2") + " - " + state);
                 if (success) FoundAddressesListBox.Items.Add("0x" + currentScanAddress.ToString("X2"));
                 scanIndex++;
@@ -939,7 +937,7 @@ namespace I2CSerialData
                     {
                         nextHeartbeat = DateTime.Now.AddSeconds(1);
 
-                        SendPacket(IdRequest, "One-second connectivity check", false, true);
+                        // SendPacket(IdRequest, "One-second connectivity check", false, true);
                     }
                 }
             }
@@ -961,9 +959,21 @@ namespace I2CSerialData
                 return;
             }
 
-            if (waiting || !verified)
+            if (!verified || !serialPort.IsOpen)
             {
-                MessageBox.Show("Cannot scan while disconnected or waiting for a response.");
+                Error("Cannot send: PIC is disconnected or not verified.");
+                return;
+            }
+
+            if (scanningAddresses)
+            {
+                Error("Cannot send: I2C scan is still running.");
+                return;
+            }
+
+            if (waiting)
+            {
+                Error("Cannot send: Waiting for response from " + currentRequest);
                 return;
             }
 
